@@ -35,6 +35,9 @@ jobs:
           DERIV_APP_ID: ${{ secrets.DERIV_APP_ID }}
         run: python fetch_history.py ${{ github.event.inputs.history_count }}
 
+      - name: Analisis apakah data punya pola asli (statistical test)
+        run: python analyze_randomness.py
+
       - name: Train model
         run: python train_model.py
 
