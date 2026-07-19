@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Flyonz Quant Dashboard</title>
+<meta http-equiv="refresh" content="3">
+<style>
+  body { background:#0d1117; color:#e6edf3; font-family: 'Segoe UI', sans-serif; margin:0; padding:24px; }
+  h1 { font-size:20px; margin-bottom:4px; }
+  .badge { background:#f59e0b; color:#111; padding:2px 10px; border-radius:6px; font-size:12px; font-weight:600; }
+  .grid { display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; margin:20px 0; }
+  .card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:16px; }
+  .card .label { font-size:12px; color:#8b949e; text-transform:uppercase; letter-spacing:.05em; }
+  .card .value { font-size:24px; font-weight:700; margin-top:6px; }
+  .pos { color:#3fb950; }
+  .neg { color:#f85149; }
+  table { width:100%; border-collapse:collapse; margin-top:20px; font-size:14px; }
+  th, td { padding:10px 12px; text-align:left; border-bottom:1px solid #21262d; }
+  th { color:#8b949e; font-weight:600; font-size:12px; text-transform:uppercase; }
+  .status { padding:2px 10px; border-radius:6px; font-size:12px; font-weight:600; }
+  .status-open { background:#1f6feb33; color:#58a6ff; }
+  .status-settled { background:#3fb95033; color:#3fb950; }
+  .win { background:#3fb95033; color:#3fb950; padding:2px 8px; border-radius:6px; font-size:12px;}
+  .loss { background:#f8514933; color:#f85149; padding:2px 8px; border-radius:6px; font-size:12px;}
+</style>
+</head>
+<body>
+  <h1>Flyonz Quant <span class="badge">DEMO</span></h1>
+  <p style="color:#8b949e;font-size:13px">Symbol: {{ symbol }} — auto-refresh tiap 3 detik</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Net P&amp;L</div>
+      <div class="value" id="net_pl">-</div>
+    </div>
+    <div class="card">
+      <div class="label">Win / Loss</div>
+      <div class="value"><span id="wins">-</span> / <span id="losses">-</span></div>
+    </div>
+    <div class="card">
+      <div class="label">Win Rate</div>
+      <div class="value" id="wr">-</div>
+    </div>
+    <div class="card">
+      <div class="label">Open Positions</div>
+      <div class="value" id="open">-</div>
+    </div>
+    <div class="card">
+      <div class="label">Dataset Rows (AI)</div>
+      <div class="value" id="dataset_rows">-</div>
+    </div>
+  </div>
+
+  <table id="trades-table">
+    <thead>
+      <tr><th>Waktu</th><th>Simbol</th><th>Tipe</th><th>Stake</th><th>Entry</th><th>Exit</th><th>P/L</th><th>Hasil</th><th>Status</th></tr>
+    </thead>
+    <tbody id="trades-body"></tbody>
+  </table>
+
+<script>
+async function load() {
+  const res = await fetch('/api/data');
+  const data = await res.json();
+  const s = data.summary;
+  document.getElementById('net_pl').textContent = (s.net_pl >= 0 ? '+' : '') + s.net_pl.toFixed(2) + ' USD';
+  document.getElementById('net_pl').className = 'value ' + (s.net_pl >= 0 ? 'pos' : 'neg');
+  document.getElementById('wins').textContent = s.wins || 0;
+  document.getElementById('losses').textContent = s.losses || 0;
+  const total = (s.wins || 0) + (s.losses || 0);
+  document.getElementById('wr').textContent = total ? Math.round((s.wins/total)*100) + '%' : '—';
+  document.getElementById('open').textContent = s.open || 0;
+  document.getElementById('dataset_rows').textContent = data.dataset_rows || 0;
+
+  const body = document.getElementById('trades-body');
+  body.innerHTML = '';
+  data.trades.slice(0, 30).forEach(t => {
+    const tr = document.createElement('tr');
+    const plClass = t.pl == null ? '' : (t.pl >= 0 ? 'pos' : 'neg');
+    const hasil = t.pl == null ? '—' : (t.pl >= 0
+      ? '<span class="win">WIN</span>' : '<span class="loss">LOSS</span>');
+    tr.innerHTML = `
+      <td>${t.time}</td>
+      <td>${t.symbol}</td>
+      <td>${t.type}</td>
+      <td>${t.stake.toFixed(2)} USD</td>
+      <td>${t.entry}</td>
+      <td>${t.exit ?? '—'}</td>
+      <td class="${plClass}">${t.pl == null ? '—' : (t.pl >= 0 ? '+' : '') + t.pl.toFixed(2) + ' USD'}</td>
+      <td>${hasil}</td>
+      <td><span class="status ${t.status === 'Open' ? 'status-open' : 'status-settled'}">${t.status}</span></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+load();
+setInterval(load, 3000);
+</script>
+</body>
+</html>

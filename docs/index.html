@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flyonz Quant Dashboard</title>
+<style>
+  body { background:#0d1117; color:#e6edf3; font-family: 'Segoe UI', sans-serif; margin:0; padding:20px; }
+  h1 { font-size:20px; margin-bottom:4px; }
+  .badge { background:#f59e0b; color:#111; padding:2px 10px; border-radius:6px; font-size:12px; font-weight:600; }
+  .sub { color:#8b949e; font-size:13px; margin:8px 0 20px; }
+  .grid { display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; margin:20px 0; }
+  @media (min-width: 700px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+  .card { background:#161b22; border:1px solid #30363d; border-radius:10px; padding:14px; }
+  .card .label { font-size:11px; color:#8b949e; text-transform:uppercase; letter-spacing:.05em; }
+  .card .value { font-size:22px; font-weight:700; margin-top:6px; }
+  .pos { color:#3fb950; }
+  .neg { color:#f85149; }
+  table { width:100%; border-collapse:collapse; margin-top:20px; font-size:13px; }
+  th, td { padding:8px 10px; text-align:left; border-bottom:1px solid #21262d; white-space:nowrap; }
+  th { color:#8b949e; font-weight:600; font-size:11px; text-transform:uppercase; }
+  .table-wrap { overflow-x:auto; }
+  .status { padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; }
+  .status-open { background:#1f6feb33; color:#58a6ff; }
+  .status-settled { background:#3fb95033; color:#3fb950; }
+  .win { background:#3fb95033; color:#3fb950; padding:2px 8px; border-radius:6px; font-size:11px;}
+  .loss { background:#f8514933; color:#f85149; padding:2px 8px; border-radius:6px; font-size:11px;}
+  .err { color:#f85149; padding:20px; background:#161b22; border-radius:10px; margin-top:20px; }
+  .refresh-note { color:#8b949e; font-size:12px; margin-top:20px; }
+</style>
+</head>
+<body>
+  <h1>Flyonz Quant <span class="badge">DEMO</span></h1>
+  <p class="sub" id="sub-info">Memuat data dari repo GitHub...</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="label">Net P&amp;L</div>
+      <div class="value" id="net_pl">-</div>
+    </div>
+    <div class="card">
+      <div class="label">Win / Loss</div>
+      <div class="value"><span id="wins">-</span> / <span id="losses">-</span></div>
+    </div>
+    <div class="card">
+      <div class="label">Win Rate</div>
+      <div class="value" id="wr">-</div>
+    </div>
+    <div class="card">
+      <div class="label">Open Positions</div>
+      <div class="value" id="open">-</div>
+    </div>
+  </div>
+
+  <div id="error-box"></div>
+
+  <div class="table-wrap">
+    <table id="trades-table">
+      <thead>
+        <tr><th>Tanggal</th><th>Waktu</th><th>Simbol</th><th>Tipe</th><th>Stake</th><th>Entry</th><th>Exit</th><th>P/L</th><th>Hasil</th><th>Status</th></tr>
+      </thead>
+      <tbody id="trades-body"></tbody>
+    </table>
+  </div>
+
+  <p class="refresh-note">Refresh halaman ini buat lihat data terbaru. Data diperbarui otomatis tiap bot jalan (~15 menit sekali).</p>
+
+<script>
+function getRepoInfo() {
+  // Otomatis deteksi owner/repo dari URL GitHub Pages (username.github.io/reponame/)
+  const host = window.location.hostname; // e.g. username.github.io
+  const owner = host.split('.')[0];
+  const pathParts = window.location.pathname.split('/').filter(Boolean);
+  const repo = pathParts[0] || '';
+  return { owner, repo };
+}
+
+async function load() {
+  const { owner, repo } = getRepoInfo();
+  const branches = ['main', 'master'];
+  let data = null;
+  let usedBranch = null;
+  let lastErr = null;
+
+  for (const branch of branches) {
+    try {
+      const url = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/trades.json?t=${Date.now()}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        data = await res.json();
+        usedBranch = branch;
+        break;
+      }
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+
+  const subInfo = document.getElementById('sub-info');
+  const errBox = document.getElementById('error-box');
+
+  if (!data) {
+    subInfo.textContent = `Repo: ${owner}/${repo}`;
+    errBox.innerHTML = `<div class="err">Belum bisa baca trades.json dari repo. Kemungkinan: bot belum pernah jalan sekali pun (trades.json belum ada di repo), atau repo private (dashboard ini cuma bisa baca repo public).</div>`;
+    return;
+  }
+
+  subInfo.textContent = `Repo: ${owner}/${repo} (branch: ${usedBranch}) — auto-refresh manual`;
+
+  const s = data.summary || {};
+  document.getElementById('net_pl').textContent = (s.net_pl >= 0 ? '+' : '') + (s.net_pl ?? 0).toFixed(2) + ' USD';
+  document.getElementById('net_pl').className = 'value ' + (s.net_pl >= 0 ? 'pos' : 'neg');
+  document.getElementById('wins').textContent = s.wins || 0;
+  document.getElementById('losses').textContent = s.losses || 0;
+  const total = (s.wins || 0) + (s.losses || 0);
+  document.getElementById('wr').textContent = total ? Math.round((s.wins/total)*100) + '%' : '—';
+  document.getElementById('open').textContent = s.open || 0;
+
+  const body = document.getElementById('trades-body');
+  body.innerHTML = '';
+  (data.trades || []).slice(0, 50).forEach(t => {
+    const tr = document.createElement('tr');
+    const plClass = t.pl == null ? '' : (t.pl >= 0 ? 'pos' : 'neg');
+    const hasil = t.pl == null ? '—' : (t.pl >= 0
+      ? '<span class="win">WIN</span>' : '<span class="loss">LOSS</span>');
+    tr.innerHTML = `
+      <td>${t.date || '—'}</td>
+      <td>${t.time}</td>
+      <td>${t.symbol}</td>
+      <td>${t.type}</td>
+      <td>${t.stake.toFixed(2)} USD</td>
+      <td>${t.entry}</td>
+      <td>${t.exit ?? '—'}</td>
+      <td class="${plClass}">${t.pl == null ? '—' : (t.pl >= 0 ? '+' : '') + t.pl.toFixed(2) + ' USD'}</td>
+      <td>${hasil}</td>
+      <td><span class="status ${t.status === 'Open' ? 'status-open' : 'status-settled'}">${t.status}</span></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+load();
+</script>
+</body>
+</html>

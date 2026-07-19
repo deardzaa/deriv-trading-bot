@@ -1,0 +1,7 @@
+websockets
+flask
+python-dotenv
+pandas
+scikit-learn
+joblib
+requests
