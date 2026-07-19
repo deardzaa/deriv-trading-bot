@@ -30,6 +30,12 @@ MODEL_PATH = os.path.join(os.path.dirname(__file__), "model.pkl")
 AI_LOOKBACK = 10       # berapa tick terakhir dipakai sebagai fitur
 AI_MIN_CONFIDENCE = 0.60  # minimal probabilitas biar model mau ambil posisi
 
+# Horizon prediksi HARUS match durasi kontrak beneran (DURATION di atas),
+# bukan cuma "tick berikutnya" - kalau nggak, model belajar soal yang beda
+# dari yang beneran ditradingkan. R_100 standard tick tiap ~2 detik.
+TICK_INTERVAL_SECONDS = 2
+PREDICTION_HORIZON_TICKS = max(1, round(DURATION / TICK_INTERVAL_SECONDS))
+
 # Batas harian - bot berhenti buka posisi baru kalau salah satu tercapai.
 # Trade yang udah OPEN tetap dibiarkan settle secara normal, cuma nggak ada
 # entry baru sampai hari berikutnya (WIB/UTC tergantung server, lihat catatan
