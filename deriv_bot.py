@@ -70,20 +70,30 @@ class DerivBot:
 
     async def buy_contract(self, direction, price):
         """direction: 'CALL' or 'PUT'"""
-        proposal = {
-            "buy": 1,
-            "price": STAKE,
-            "parameters": {
-                "amount": STAKE,
-                "basis": "stake",
-                "contract_type": direction,
-                "currency": "USD",
-                "duration": DURATION,
-                "duration_unit": DURATION_UNIT,
-                "symbol": SYMBOL,
-            },
+        # LANGKAH 1: minta proposal dulu (skema baru pakai underlying_symbol)
+        proposal_payload = {
+            "proposal": 1,
+            "amount": STAKE,
+            "basis": "stake",
+            "contract_type": direction,
+            "currency": "USD",
+            "duration": DURATION,
+            "duration_unit": DURATION_UNIT,
+            "underlying_symbol": SYMBOL,
         }
-        res = await self.send(proposal)
+        prop_res = await self.send(proposal_payload)
+        if "error" in prop_res:
+            print(f"Gagal ambil proposal: {prop_res['error'].get('message')}")
+            return
+        proposal = prop_res.get("proposal", {})
+        proposal_id = proposal.get("id")
+        ask_price = proposal.get("ask_price")
+        if not proposal_id or ask_price is None:
+            print(f"Response proposal nggak lengkap: {prop_res}")
+            return
+
+        # LANGKAH 2: beli pakai ID dari proposal
+        res = await self.send({"buy": proposal_id, "price": float(ask_price)})
         if "error" in res:
             print(f"Gagal buy: {res['error'].get('message')}")
             return
