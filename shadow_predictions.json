@@ -1,0 +1,17 @@
+{
+  "predictions": [
+    {
+      "id": 1,
+      "made_at": 1784468830,
+      "made_at_readable": "2026-07-19 13:47:10",
+      "entry_price": 535.34,
+      "predicted_direction": "UP",
+      "confidence": 0.5075,
+      "target_epoch": 1784468890,
+      "resolved": false,
+      "actual_price": null,
+      "correct": null
+    }
+  ],
+  "next_id": 2
+}
