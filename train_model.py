@@ -15,6 +15,7 @@ diandalkan buat prediksi harga masa depan di instrumen semacam ini. Model
 ini murni latihan/eksperimen data science, bukan jaminan profit.
 """
 import sys
+import numpy as np
 import pandas as pd
 import joblib
 from sklearn.ensemble import RandomForestClassifier
@@ -143,6 +144,38 @@ def main():
     print("- Kalau akurasi NAIK jelas seiring threshold naik (misal ke 0.65+), itu")
     print("  baru sinyal kalau confidence tinggi model beneran bisa diandalkan - tapi")
     print("  perhatikan juga coverage-nya, kalau di bawah 5% itu jadi jarang banget trading.")
+
+    # === Validasi ulang pakai sample yang BENERAN independen ===
+    # Baris yang berdekatan itu saling overlap (lag features & prediction
+    # horizon sama-sama "nyerempet" data yang sama), jadi akurasi tinggi di
+    # sample kecil BISA cuma ilusi dari beberapa kejadian asli yang keitung
+    # berkali-kali. Ini re-test cuma pakai baris yang nggak overlap sama
+    # sekali (skip tiap PREDICTION_HORIZON_TICKS baris).
+    print("\n" + "=" * 60)
+    print("VALIDASI ULANG: cuma pakai sample independen (non-overlapping)")
+    print("=" * 60)
+    print(f"(Skip tiap {PREDICTION_HORIZON_TICKS} baris biar nggak ada window yang nyerempet)")
+    non_overlap_idx = np.arange(0, len(X_test), PREDICTION_HORIZON_TICKS)
+    X_test_no = X_test.iloc[non_overlap_idx]
+    y_test_no = y_test_arr[non_overlap_idx]
+    proba_no = model.predict_proba(X_test_no)
+    max_proba_no = proba_no.max(axis=1)
+    pred_class_no = proba_no.argmax(axis=1)
+
+    print(f"{'Threshold':>10} | {'Akurasi':>8} | {'Jml Trade':>10}")
+    print("-" * 36)
+    for threshold in [0.50, 0.55, 0.60, 0.65, 0.70]:
+        mask = max_proba_no >= threshold
+        n_selected = mask.sum()
+        if n_selected == 0:
+            print(f"{threshold:>10.2f} | {'--':>8} | {0:>10} (nggak ada sample)")
+            continue
+        selective_acc = (pred_class_no[mask] == y_test_no[mask]).mean()
+        print(f"{threshold:>10.2f} | {selective_acc:>8.3f} | {n_selected:>10}")
+
+    print("\nKalau tabel ini hasilnya jauh lebih 'biasa aja' (nggak ada lagi 100%")
+    print("di sample kecil) dibanding tabel di atas, itu mengonfirmasi dugaan:")
+    print("angka 100% tadi cuma ilusi dari window yang overlap, BUKAN sinyal asli.")
 
     joblib.dump({"model": model, "feature_cols": feature_cols}, MODEL_PATH)
     print(f"\nModel disimpan ke {MODEL_PATH}")
