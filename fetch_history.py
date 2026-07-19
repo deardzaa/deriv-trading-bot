@@ -57,7 +57,15 @@ async def fetch(total_count: int):
             remaining = total_count - len(all_prices)
             batch_size = min(MAX_PER_REQUEST, remaining)
 
-            prices, times = await fetch_batch(ws, batch_size, end)
+            try:
+                prices, times = await fetch_batch(ws, batch_size, end)
+            except Exception as e:
+                print(f"[WARN] Gagal ambil batch (kemungkinan rate limit atau "
+                      f"koneksi terputus): {e}")
+                print(f"Berhenti di sini, TAPI tetap simpan {len(all_prices)} "
+                      f"tick yang udah berhasil dikumpulkan sejauh ini.")
+                break
+
             if not prices:
                 print("Deriv nggak ngasih data lagi (kemungkinan udah mentok "
                       "histori paling lama yang tersedia). Berhenti di sini.")
