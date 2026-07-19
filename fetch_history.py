@@ -13,12 +13,14 @@ import json
 import sys
 import websockets
 
-from config import APP_ID, SYMBOL, TICKS_LOG_PATH
+from config import SYMBOL, TICKS_LOG_PATH
 from dataset_logger import log_tick
 from strategy import SmaCrossoverStrategy
 import indicators as ind
 
-WS_URL = f"wss://ws.derivws.com/websockets/v3?app_id={APP_ID}"
+# Data harga (ticks_history) itu public, nggak butuh token/akun - jadi pakai
+# endpoint public langsung, nggak perlu autentikasi apa pun.
+WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public"
 
 
 async def fetch(count: int):
