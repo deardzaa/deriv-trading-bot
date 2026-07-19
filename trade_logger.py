@@ -39,6 +39,11 @@ def log_open_trade(contract_id, symbol, contract_type, stake, entry_price):
         _save(data)
 
 
+def get_open_trades():
+    data = _load()
+    return [t for t in data["trades"] if t["status"] == "Open"]
+
+
 def get_today_pl():
     """Total P&L dari trade yang udah settled HARI INI (buat cek daily limit)."""
     data = _load()
