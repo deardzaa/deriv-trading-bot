@@ -1,5 +1,5 @@
 name: Deriv Trading Bot
-
+ 
 on:
   schedule:
     # tiap 15 menit. GitHub minimum interval cron adalah 5 menit, tapi jadwal
