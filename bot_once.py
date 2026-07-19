@@ -52,20 +52,33 @@ def build_strategy():
 
 
 async def buy_contract(ws, direction, price):
-    payload = {
-        "buy": 1,
-        "price": STAKE,
-        "parameters": {
-            "amount": STAKE,
-            "basis": "stake",
-            "contract_type": direction,
-            "currency": "USD",
-            "duration": DURATION,
-            "duration_unit": DURATION_UNIT,
-            "symbol": SYMBOL,
-        },
+    # LANGKAH 1: minta proposal dulu (skema baru pakai underlying_symbol,
+    # bukan symbol lagi)
+    proposal_payload = {
+        "proposal": 1,
+        "amount": STAKE,
+        "basis": "stake",
+        "contract_type": direction,
+        "currency": "USD",
+        "duration": DURATION,
+        "duration_unit": DURATION_UNIT,
+        "underlying_symbol": SYMBOL,
     }
-    await ws.send(json.dumps(payload))
+    await ws.send(json.dumps(proposal_payload))
+    prop_res = json.loads(await ws.recv())
+    if "error" in prop_res:
+        print(f"[WARN] Gagal ambil proposal: {prop_res['error'].get('message')}")
+        return
+    proposal = prop_res.get("proposal", {})
+    proposal_id = proposal.get("id")
+    ask_price = proposal.get("ask_price")
+    if not proposal_id or ask_price is None:
+        print(f"[WARN] Response proposal nggak lengkap: {prop_res}")
+        return
+
+    # LANGKAH 2: beli pakai ID dari proposal di atas
+    buy_payload = {"buy": proposal_id, "price": float(ask_price)}
+    await ws.send(json.dumps(buy_payload))
     res = json.loads(await ws.recv())
     if "error" in res:
         print(f"[WARN] Gagal buy: {res['error'].get('message')}")
