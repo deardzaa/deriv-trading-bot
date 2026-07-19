@@ -53,6 +53,7 @@ GEMINI_MODEL = "gemini-2.5-flash"
 
 TRADES_LOG_PATH = os.path.join(os.path.dirname(__file__), "trades.json")
 TICKS_LOG_PATH = os.path.join(os.path.dirname(__file__), "ticks_dataset.csv")
+SHADOW_LOG_PATH = os.path.join(os.path.dirname(__file__), "shadow_predictions.json")
 
 # SAFETY: bot ini defaultnya hanya boleh jalan di akun DEMO.
 # Set ke True hanya kalau kamu benar-benar paham risikonya dan mau pakai akun real.
