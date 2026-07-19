@@ -1,4 +1,4 @@
-"""
+ """
 Versi bot yang jalan SEKALI lalu selesai (bukan streaming terus-terusan).
 Didesain buat dipicu berkala oleh GitHub Actions (cron), bukan proses yang
 tetap hidup di device/server kamu.
@@ -29,7 +29,7 @@ from config import (
     MODEL_PATH,
 )
 from strategy import SmaCrossoverStrategy
-from trade_logger import log_open_trade, log_close_trade, get_today_pl
+from trade_logger import log_open_trade, log_close_trade, get_today_pl, get_open_trades
 from dataset_logger import log_tick
 import indicators as ind
 from deriv_auth import get_demo_ws_url
@@ -49,6 +49,39 @@ def build_strategy():
             print("Fallback ke mode SMA buat run ini.")
     print("Mode: SMA (rule-based)")
     return SmaCrossoverStrategy()
+
+
+async def resolve_open_trades(ws):
+    """Cek trade BENERAN yang masih 'Open', tanya Deriv udah settle atau belum.
+    Ini penting karena bot_once.py cuma jalan sebentar terus keluar - kalau
+    nggak dicek ulang di run berikutnya, status trade bakal nyangkut 'Open'
+    selamanya walau kontraknya udah settle beneran di sisi Deriv."""
+    open_trades = get_open_trades()
+    if not open_trades:
+        return
+    print(f"Ngecek {len(open_trades)} trade yang masih 'Open'...")
+    for t in open_trades:
+        try:
+            await ws.send(json.dumps({
+                "proposal_open_contract": 1,
+                "contract_id": t["contract_id"],
+            }))
+            res = json.loads(await ws.recv())
+            if "error" in res:
+                print(f"  [WARN] Gagal cek contract {t['contract_id']}: {res['error'].get('message')}")
+                continue
+            poc = res.get("proposal_open_contract", {})
+            if poc.get("is_sold"):
+                pl = float(poc.get("profit", 0))
+                exit_price = float(poc.get("exit_tick", poc.get("sell_price", 0)))
+                won = pl > 0
+                log_close_trade(t["contract_id"], exit_price, pl, won)
+                print(f"  [SETTLED] contract {t['contract_id']} P/L={pl:+.2f} "
+                      f"{'WIN' if won else 'LOSS'}")
+            else:
+                print(f"  Contract {t['contract_id']} masih berjalan, belum settle.")
+        except Exception as e:
+            print(f"  [WARN] Gagal cek contract {t['contract_id']}: {e}")
 
 
 async def buy_contract(ws, direction, price):
@@ -197,6 +230,10 @@ async def single_run():
     print(f"Akun demo ditemukan: {account_id}")
 
     async with websockets.connect(ws_url, open_timeout=15) as ws:
+        # Selesaikan trade BENERAN yang masih 'Open' dulu (biar nggak nyangkut
+        # selamanya), sebelum resolve prediksi shadow dan bikin sinyal baru.
+        await resolve_open_trades(ws)
+
         # Shadow mode: selesaikan prediksi lama dulu (evaluasi jujur pakai
         # harga yang beneran udah kejadian), sebelum bikin prediksi baru.
         await resolve_shadow_predictions(ws)
