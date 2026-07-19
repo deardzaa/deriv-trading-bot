@@ -22,13 +22,14 @@ import websockets
 
 from config import (
     DERIV_API_TOKEN, APP_ID, SYMBOL, STAKE, DURATION, DURATION_UNIT,
-    ALLOW_REAL_ACCOUNT, STRATEGY_MODE, DAILY_LOSS_LIMIT, DAILY_PROFIT_LIMIT,
+    STRATEGY_MODE, DAILY_LOSS_LIMIT, DAILY_PROFIT_LIMIT,
     ENABLE_DAILY_LIMITS,
 )
 from strategy import SmaCrossoverStrategy
 from trade_logger import log_open_trade, log_close_trade, get_today_pl
 from dataset_logger import log_tick
 import indicators as ind
+from deriv_auth import get_demo_ws_url
 
 
 def build_strategy():
@@ -38,8 +39,6 @@ def build_strategy():
         return AiStrategy()
     print("Mode: SMA (rule-based)")
     return SmaCrossoverStrategy()
-
-WS_URL = f"wss://ws.derivws.com/websockets/v3?app_id={APP_ID}"
 
 
 class DerivBot:
@@ -61,20 +60,6 @@ class DerivBot:
         self.pending[rid] = fut
         await self.ws.send(json.dumps(payload))
         return await fut
-
-    async def authorize(self):
-        if not DERIV_API_TOKEN:
-            print("ERROR: DERIV_API_TOKEN belum diisi di file .env")
-            sys.exit(1)
-        res = await self.send({"authorize": DERIV_API_TOKEN})
-        auth = res.get("authorize", {})
-        is_virtual = auth.get("is_virtual", 0)
-        print(f"Login sukses. Account: {auth.get('loginid')} | Virtual(demo): {bool(is_virtual)}")
-
-        if not is_virtual and not ALLOW_REAL_ACCOUNT:
-            print("STOP: Ini akun REAL, bukan demo. Bot ini dikunci untuk demo-only.")
-            print("Set ALLOW_REAL_ACCOUNT=True di config.py kalau kamu sadar risikonya dan tetap mau lanjut.")
-            sys.exit(1)
 
     async def subscribe_ticks(self):
         await self.ws.send(json.dumps({
@@ -166,9 +151,15 @@ class DerivBot:
                     del self.open_contracts[contract_id]
 
     async def run(self):
-        async with websockets.connect(WS_URL) as ws:
+        if not DERIV_API_TOKEN:
+            print("ERROR: DERIV_API_TOKEN belum diisi di file .env")
+            sys.exit(1)
+
+        ws_url, account_id = get_demo_ws_url(DERIV_API_TOKEN, APP_ID)
+        print(f"Akun demo ditemukan: {account_id}")
+
+        async with websockets.connect(ws_url) as ws:
             self.ws = ws
-            await self.authorize()
             await self.subscribe_ticks()
             print(f"Bot jalan di {SYMBOL}, mode DEMO. Menunggu sinyal SMA crossover...")
             async for message in ws:
