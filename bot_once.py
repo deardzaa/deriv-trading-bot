@@ -22,15 +22,14 @@ import websockets
 
 from config import (
     DERIV_API_TOKEN, APP_ID, SYMBOL, STAKE, DURATION, DURATION_UNIT,
-    ALLOW_REAL_ACCOUNT, STRATEGY_MODE, MAX_RETRIES, RETRY_DELAY_SECONDS,
+    STRATEGY_MODE, MAX_RETRIES, RETRY_DELAY_SECONDS,
     HISTORY_TICKS_COUNT, DAILY_LOSS_LIMIT, DAILY_PROFIT_LIMIT, ENABLE_DAILY_LIMITS,
 )
 from strategy import SmaCrossoverStrategy
 from trade_logger import log_open_trade, log_close_trade, get_today_pl
 from dataset_logger import log_tick
 import indicators as ind
-
-WS_URL = f"wss://ws.derivws.com/websockets/v3?app_id={APP_ID}"
+from deriv_auth import get_demo_ws_url
 
 
 def build_strategy():
@@ -87,26 +86,19 @@ async def fetch_history(ws):
     return [float(p) for p in res["history"]["prices"]]
 
 
-async def authorize(ws):
-    await ws.send(json.dumps({"authorize": DERIV_API_TOKEN}))
-    res = json.loads(await ws.recv())
-    if "error" in res:
-        raise RuntimeError(res["error"].get("message"))
-    auth = res["authorize"]
-    is_virtual = auth.get("is_virtual", 0)
-    print(f"Login: {auth.get('loginid')} | Demo: {bool(is_virtual)}")
-    if not is_virtual and not ALLOW_REAL_ACCOUNT:
-        raise RuntimeError("Akun REAL terdeteksi, bot dikunci demo-only. Berhenti.")
-    return auth
-
-
 async def single_run():
     if not DERIV_API_TOKEN:
         print("[FATAL] DERIV_API_TOKEN kosong. Cek GitHub Secrets.")
         sys.exit(1)
 
-    async with websockets.connect(WS_URL, open_timeout=15) as ws:
-        await authorize(ws)
+    # Ambil URL WebSocket khusus akun DEMO lewat REST + OTP (arsitektur API
+    # terbaru Deriv). Ini sengaja CUMA nyari akun bertipe demo - kalau nggak
+    # ketemu, get_demo_ws_url() raise error dan bot berhenti (fail-open akan
+    # nangkep ini di run_with_retries).
+    ws_url, account_id = get_demo_ws_url(DERIV_API_TOKEN, APP_ID)
+    print(f"Akun demo ditemukan: {account_id}")
+
+    async with websockets.connect(ws_url, open_timeout=15) as ws:
         prices = await fetch_history(ws)
         print(f"Ambil {len(prices)} tick historis.")
 
