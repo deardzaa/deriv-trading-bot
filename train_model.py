@@ -9,6 +9,9 @@ nggak cuma nebak-nebak (noise). Kalau datanya masih dikit, script ini akan
 kasih peringatan tapi tetap jalan (buat testing pipeline aja, bukan buat
 dipakai trading beneran).
 
+Sekarang latih 2 algoritma sekaligus (Random Forest & Gradient Boosting),
+bandingin, dan otomatis pilih yang akurasinya lebih baik di data test.
+
 PENTING: R_100 dan simbol synthetic index lain di Deriv didesain berbasis
 random generator. Secara teori, nggak ada pola harga masa lalu yang bisa
 diandalkan buat prediksi harga masa depan di instrumen semacam ini. Model
@@ -18,9 +21,10 @@ import sys
 import numpy as np
 import pandas as pd
 import joblib
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
+from sklearn.utils.class_weight import compute_sample_weight
 
 from config import TICKS_LOG_PATH, MODEL_PATH, AI_LOOKBACK, PREDICTION_HORIZON_TICKS
 
@@ -40,30 +44,50 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     df["sma_slow"] = pd.to_numeric(df["sma_slow"], errors="coerce")
     df["sma_gap"] = df["sma_fast"] - df["sma_slow"]
 
-    # indikator teknikal tambahan (RSI, MACD, Bollinger Bands)
+    # RSI, MACD, Bollinger Bands
     df["rsi"] = pd.to_numeric(df.get("rsi"), errors="coerce")
 
     df["macd"] = pd.to_numeric(df.get("macd"), errors="coerce")
     df["macd_signal"] = pd.to_numeric(df.get("macd_signal"), errors="coerce")
-    df["macd_hist"] = df["macd"] - df["macd_signal"]  # momentum MACD
+    df["macd_hist"] = df["macd"] - df["macd_signal"]
 
     df["bb_upper"] = pd.to_numeric(df.get("bb_upper"), errors="coerce")
     df["bb_lower"] = pd.to_numeric(df.get("bb_lower"), errors="coerce")
     bb_range = df["bb_upper"] - df["bb_lower"]
-    # posisi harga relatif dalam band (0 = di lower band, 1 = di upper band)
     df["bb_percent"] = ((df["price"] - df["bb_lower"]) / bb_range.replace(0, pd.NA))
     df["bb_width"] = bb_range
 
+    # Indikator baru: Stochastic Oscillator, Williams %R, Rate of Change
+    df["stoch_k"] = pd.to_numeric(df.get("stoch_k"), errors="coerce")
+    df["stoch_d"] = pd.to_numeric(df.get("stoch_d"), errors="coerce")
+    df["williams_r"] = pd.to_numeric(df.get("williams_r"), errors="coerce")
+    df["roc"] = pd.to_numeric(df.get("roc"), errors="coerce")
+
     # target: apakah harga NANTI (di akhir durasi kontrak beneran, bukan cuma
-    # tick berikutnya) naik (1) atau turun (0) dibanding sekarang. Ini match
-    # sama apa yang beneran ditradingkan (kontrak durasi DURATION detik).
+    # tick berikutnya) naik (1) atau turun (0) dibanding sekarang.
     df["target"] = (df["price"].shift(-PREDICTION_HORIZON_TICKS) > df["price"]).astype(int)
 
     lag_cols = [c for c in df.columns if c.startswith("lag_")]
-    indicator_cols = ["sma_gap", "rsi", "macd_hist", "bb_percent", "bb_width"]
+    indicator_cols = [
+        "sma_gap", "rsi", "macd_hist", "bb_percent", "bb_width",
+        "stoch_k", "stoch_d", "williams_r", "roc",
+    ]
     required_cols = lag_cols + indicator_cols + ["target"]
     df = df.dropna(subset=required_cols).reset_index(drop=True)
     return df, lag_cols + indicator_cols
+
+
+def train_and_evaluate(name, model, X_train, y_train, X_test, y_test, sample_weight=None):
+    if sample_weight is not None:
+        model.fit(X_train, y_train, sample_weight=sample_weight)
+    else:
+        model.fit(X_train, y_train)
+    preds = model.predict(X_test)
+    acc = accuracy_score(y_test, preds)
+    print(f"\n--- {name} ---")
+    print(f"Akurasi di data test (out-of-sample): {acc:.3f}")
+    print(classification_report(y_test, preds, target_names=["DOWN", "UP"]))
+    return model, acc
 
 
 def main():
@@ -91,32 +115,43 @@ def main():
     up_pct = (y == 1).mean() * 100
     print(f"Distribusi target: DOWN={down_pct:.1f}% | UP={up_pct:.1f}% "
           f"(horizon prediksi: {PREDICTION_HORIZON_TICKS} tick / {PREDICTION_HORIZON_TICKS*2}s ke depan)")
+    print(f"Fitur yang dipakai ({len(feature_cols)}): {feature_cols}")
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, shuffle=False  # jangan shuffle, ini deret waktu
     )
 
-    # class_weight="balanced" biar model nggak "curang" cuma nebak kelas
-    # mayoritas terus - dipaksa belajar bedain dua kelas, bukan cari jalan
-    # pintas statistik.
-    model = RandomForestClassifier(
+    print("\n" + "=" * 60)
+    print("PERBANDINGAN ALGORITMA")
+    print("=" * 60)
+
+    # Random Forest, class_weight="balanced" built-in
+    rf = RandomForestClassifier(
         n_estimators=200, max_depth=6, random_state=42, class_weight="balanced"
     )
-    model.fit(X_train, y_train)
+    rf, rf_acc = train_and_evaluate("Random Forest", rf, X_train, y_train, X_test, y_test)
 
-    preds = model.predict(X_test)
-    acc = accuracy_score(y_test, preds)
-    print(f"\nAkurasi di data test (out-of-sample): {acc:.3f}")
+    # Gradient Boosting - nggak ada class_weight built-in, jadi pakai
+    # sample_weight manual biar tetap seimbang kayak Random Forest.
+    gb_weights = compute_sample_weight("balanced", y_train)
+    gb = GradientBoostingClassifier(
+        n_estimators=150, max_depth=3, learning_rate=0.1, random_state=42
+    )
+    gb, gb_acc = train_and_evaluate("Gradient Boosting", gb, X_train, y_train, X_test, y_test,
+                                     sample_weight=gb_weights)
+
+    if gb_acc > rf_acc:
+        model, model_name = gb, "Gradient Boosting"
+    else:
+        model, model_name = rf, "Random Forest"
+    print(f"\n>>> Model terpilih: {model_name} (akurasi {max(rf_acc, gb_acc):.3f} "
+          f"vs {min(rf_acc, gb_acc):.3f})")
     print("(Sekadar konteks: 0.50 = sama aja kayak nebak koin. Kalau cuma sedikit di atas "
           "0.50, itu nggak signifikan buat dipakai trading beneran.)")
-    print(classification_report(y_test, preds, target_names=["DOWN", "UP"]))
 
-    # === Analisis confidence threshold ===
-    # Pertanyaan: kalau model CUMA dipaksa trading pas dia sangat yakin
-    # (probabilitas tinggi), apakah akurasinya beneran lebih baik? Dan berapa
-    # persen trade yang bakal diambil di tiap level confidence (coverage)?
+    # === Analisis confidence threshold (pakai model terpilih) ===
     print("\n" + "=" * 60)
-    print("ANALISIS CONFIDENCE THRESHOLD (akurasi vs seberapa sering trading)")
+    print(f"ANALISIS CONFIDENCE THRESHOLD ({model_name})")
     print("=" * 60)
     proba = model.predict_proba(X_test)
     max_proba = proba.max(axis=1)
@@ -135,22 +170,7 @@ def main():
         coverage = n_selected / len(y_test_arr) * 100
         print(f"{threshold:>10.2f} | {selective_acc:>8.3f} | {coverage:>8.1f}% | {n_selected:>10}")
 
-    print("\nInterpretasi:")
-    print("- 'Coverage' = persen dari semua kesempatan trading yang bakal beneran")
-    print("  diambil bot di threshold itu (makin tinggi threshold, makin jarang trading).")
-    print("- Kalau akurasi TETAP di sekitar 0.50 walau threshold dinaikin terus, itu")
-    print("  artinya model nggak beneran punya 'confidence yang berarti' - dia cuma")
-    print("  keluarin angka probabilitas tinggi tanpa itu mencerminkan ketepatan asli.")
-    print("- Kalau akurasi NAIK jelas seiring threshold naik (misal ke 0.65+), itu")
-    print("  baru sinyal kalau confidence tinggi model beneran bisa diandalkan - tapi")
-    print("  perhatikan juga coverage-nya, kalau di bawah 5% itu jadi jarang banget trading.")
-
     # === Validasi ulang pakai sample yang BENERAN independen ===
-    # Baris yang berdekatan itu saling overlap (lag features & prediction
-    # horizon sama-sama "nyerempet" data yang sama), jadi akurasi tinggi di
-    # sample kecil BISA cuma ilusi dari beberapa kejadian asli yang keitung
-    # berkali-kali. Ini re-test cuma pakai baris yang nggak overlap sama
-    # sekali (skip tiap PREDICTION_HORIZON_TICKS baris).
     print("\n" + "=" * 60)
     print("VALIDASI ULANG: cuma pakai sample independen (non-overlapping)")
     print("=" * 60)
@@ -177,8 +197,8 @@ def main():
     print("di sample kecil) dibanding tabel di atas, itu mengonfirmasi dugaan:")
     print("angka 100% tadi cuma ilusi dari window yang overlap, BUKAN sinyal asli.")
 
-    joblib.dump({"model": model, "feature_cols": feature_cols}, MODEL_PATH)
-    print(f"\nModel disimpan ke {MODEL_PATH}")
+    joblib.dump({"model": model, "feature_cols": feature_cols, "model_name": model_name}, MODEL_PATH)
+    print(f"\nModel ({model_name}) disimpan ke {MODEL_PATH}")
     print("Set STRATEGY_MODE = \"AI\" di config.py kalau mau bot pakai model ini.")
 
 
