@@ -2003,7 +2003,19 @@
       "resolved": false,
       "actual_price": null,
       "correct": null
+    },
+    {
+      "id": 168,
+      "made_at": 1784558794,
+      "made_at_readable": "2026-07-20 14:46:34",
+      "entry_price": 497.0,
+      "predicted_direction": "DOWN",
+      "confidence": 0.5065,
+      "target_epoch": 1784558854,
+      "resolved": false,
+      "actual_price": null,
+      "correct": null
     }
   ],
-  "next_id": 168
+  "next_id": 169
 }
