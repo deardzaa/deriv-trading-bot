@@ -2,21 +2,15 @@ name: Deriv Trading Bot
 
 on:
   schedule:
-    # tiap 15 menit. GitHub minimum interval cron adalah 5 menit, tapi jadwal
-    # bisa delay beberapa menit saat jam sibuk - ini normal, bukan bug.
     - cron: '*/15 * * * *'
-  workflow_dispatch: {}  # biar bisa di-trigger manual dari tab Actions
+  workflow_dispatch: {}
 
-# Kalau cron eksternal (misal cron-job.org) trigger tiap 1 menit, run bisa
-# tumpang tindih (run baru mulai sebelum run lama commit+push selesai) -
-# ini bikin push kedua ditolak (race condition). "concurrency" bikin run
-# yang numpuk ANTRE (jalan satu-satu berurutan), bukan bareng-bareng.
 concurrency:
   group: deriv-trading-bot-run
   cancel-in-progress: false
 
 permissions:
-  contents: write  # perlu buat commit balik trades.json/ticks_dataset.csv
+  contents: write
 
 jobs:
   run-bot:
@@ -38,16 +32,20 @@ jobs:
         run: python bot_once.py
 
       - name: Commit hasil trade & dataset
-        run: | git config user.name "deriv-bot" git config user.email "bot@users.noreply.github.com" git add trades.json 2>&1 || echo "gagal add trades.json (mungkin belum ada)" git add ticks_dataset.csv 2>&1 || echo "gagal add ticks_dataset.csv (mungkin belum ada)" git add shadow_predictions.json 2>&1 || echo "gagal add shadow_predictions.json (mungkin belum ada)" git diff --cached --quiet && echo "Nggak ada perubahan buat di-commit." && exit 0 git commit -m "Update trade log [skip ci]" 
-          # Retry push dengan pull --rebase dulu, buat jaga-jaga kalau
-          # "concurrency" di atas nggak sepenuhnya nyegah race condition
-          # (misal ada run lama yang masih nyantol).
+        run: |
+          git config user.name "deriv-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add trades.json 2>&1 || echo "belum ada trades.json"
+          git add ticks_dataset.csv 2>&1 || echo "belum ada ticks_dataset.csv"
+          git add shadow_predictions.json 2>&1 || echo "belum ada shadow_predictions.json"
+          git diff --cached --quiet && echo "Tidak ada perubahan." && exit 0
+          git commit -m "Update trade log [skip ci]"
           for i in 1 2 3 4 5; do
             if git push; then
               echo "Push berhasil di percobaan ke-$i."
               exit 0
             fi
-            echo "Push gagal (percobaan $i/5), pull --rebase lalu coba lagi..."
+            echo "Push gagal (percobaan $i/5), pull rebase lalu coba lagi..."
             git pull --rebase origin main
             sleep 3
           done
