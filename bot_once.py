@@ -26,7 +26,7 @@ from config import (
     DERIV_API_TOKEN, APP_ID, SYMBOL, STAKE, DURATION, DURATION_UNIT,
     STRATEGY_MODE, MAX_RETRIES, RETRY_DELAY_SECONDS,
     HISTORY_TICKS_COUNT, DAILY_LOSS_LIMIT, DAILY_PROFIT_LIMIT, ENABLE_DAILY_LIMITS,
-    MODEL_PATH,
+    MODEL_PATH, ENABLE_MARTINGALE, MARTINGALE_MAX_MULTIPLIER, MULTI_MIN_CONSENSUS,
 )
 from strategy import SmaCrossoverStrategy
 from trade_logger import log_open_trade, log_close_trade, get_today_pl, get_open_trades
@@ -34,11 +34,12 @@ from dataset_logger import log_tick
 import indicators as ind
 from deriv_auth import get_demo_ws_url
 import shadow_logger
+import martingale_state
 
 
 def build_strategy():
-    """Coba pakai AI kalau diminta & modelnya ada, kalau nggak fallback ke SMA
-    (fail-open: jangan sampai run gagal total cuma gara-gara model belum ada)."""
+    """Coba pakai AI/MULTI kalau diminta & tersedia, kalau nggak fallback ke
+    SMA (fail-open: jangan sampai run gagal total)."""
     if STRATEGY_MODE == "AI":
         try:
             from ai_strategy import AiStrategy
@@ -47,6 +48,10 @@ def build_strategy():
         except FileNotFoundError as e:
             print(f"[WARN] {e}")
             print("Fallback ke mode SMA buat run ini.")
+    elif STRATEGY_MODE == "MULTI":
+        from multi_indicator_strategy import MultiIndicatorStrategy
+        print(f"Mode: MULTI (voting {MULTI_MIN_CONSENSUS}/7 indikator)")
+        return MultiIndicatorStrategy(min_consensus=MULTI_MIN_CONSENSUS)
     print("Mode: SMA (rule-based)")
     return SmaCrossoverStrategy()
 
@@ -76,6 +81,8 @@ async def resolve_open_trades(ws):
                 exit_price = float(poc.get("exit_tick", poc.get("sell_price", 0)))
                 won = pl > 0
                 log_close_trade(t["contract_id"], exit_price, pl, won)
+                if ENABLE_MARTINGALE:
+                    martingale_state.record_result(won, pl)
                 print(f"  [SETTLED] contract {t['contract_id']} P/L={pl:+.2f} "
                       f"{'WIN' if won else 'LOSS'}")
             else:
@@ -84,12 +91,12 @@ async def resolve_open_trades(ws):
             print(f"  [WARN] Gagal cek contract {t['contract_id']}: {e}")
 
 
-async def buy_contract(ws, direction, price):
-    # LANGKAH 1: minta proposal dulu (skema baru pakai underlying_symbol,
-    # bukan symbol lagi)
+async def get_proposal(ws, direction, amount):
+    """Minta proposal ke Deriv, return (proposal_id, ask_price, payout) atau
+    (None, None, None) kalau gagal."""
     proposal_payload = {
         "proposal": 1,
-        "amount": STAKE,
+        "amount": amount,
         "basis": "stake",
         "contract_type": direction,
         "currency": "USD",
@@ -101,16 +108,40 @@ async def buy_contract(ws, direction, price):
     prop_res = json.loads(await ws.recv())
     if "error" in prop_res:
         print(f"[WARN] Gagal ambil proposal: {prop_res['error'].get('message')}")
-        return
+        return None, None, None
     proposal = prop_res.get("proposal", {})
     proposal_id = proposal.get("id")
     ask_price = proposal.get("ask_price")
-    if not proposal_id or ask_price is None:
+    payout = proposal.get("payout")
+    if not proposal_id or ask_price is None or payout is None:
         print(f"[WARN] Response proposal nggak lengkap: {prop_res}")
+        return None, None, None
+    return proposal_id, float(ask_price), float(payout)
+
+
+async def buy_contract(ws, direction, price):
+    stake = STAKE
+
+    if ENABLE_MARTINGALE:
+        state = martingale_state.get_state()
+        if state["step"] > 0:
+            # udah dalam sekuens Martingale - cek payout ratio ASLI Deriv
+            # sekarang (bukan asumsi tetap), baru hitung stake yang perlu.
+            _, probe_ask, probe_payout = await get_proposal(ws, direction, STAKE)
+            if probe_ask and probe_payout:
+                payout_ratio = (probe_payout - probe_ask) / probe_ask
+                stake = martingale_state.compute_next_stake(
+                    STAKE, payout_ratio, MARTINGALE_MAX_MULTIPLIER
+                )
+                print(f"[MARTINGALE] Step {state['step']}, cumulative_loss="
+                      f"{state['cumulative_loss']:.2f}, payout_ratio={payout_ratio:.3f} "
+                      f"-> stake={stake}")
+
+    proposal_id, ask_price, payout = await get_proposal(ws, direction, stake)
+    if proposal_id is None:
         return
 
-    # LANGKAH 2: beli pakai ID dari proposal di atas
-    buy_payload = {"buy": proposal_id, "price": float(ask_price)}
+    buy_payload = {"buy": proposal_id, "price": ask_price}
     await ws.send(json.dumps(buy_payload))
     res = json.loads(await ws.recv())
     if "error" in res:
@@ -118,8 +149,8 @@ async def buy_contract(ws, direction, price):
         return
     buy = res.get("buy", {})
     contract_id = buy.get("contract_id")
-    print(f"[TRADE] {direction} {SYMBOL} stake={STAKE} @ {price} -> contract {contract_id}")
-    log_open_trade(contract_id, SYMBOL, direction, STAKE, price)
+    print(f"[TRADE] {direction} {SYMBOL} stake={stake} @ {price} -> contract {contract_id}")
+    log_open_trade(contract_id, SYMBOL, direction, stake, price)
 
 
 async def fetch_history(ws):
