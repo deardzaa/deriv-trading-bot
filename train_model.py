@@ -1,22 +1,4 @@
-"""
-Latih model AI dari ticks_dataset.csv yang dikumpulkan bot.
-
-Cara pakai:
-    python train_model.py
-
-Butuh minimal beberapa ribu baris data di ticks_dataset.csv biar hasilnya
-nggak cuma nebak-nebak (noise). Kalau datanya masih dikit, script ini akan
-kasih peringatan tapi tetap jalan (buat testing pipeline aja, bukan buat
-dipakai trading beneran).
-
-Sekarang latih 2 algoritma sekaligus (Random Forest & Gradient Boosting),
-bandingin, dan otomatis pilih yang akurasinya lebih baik di data test.
-
-PENTING: R_100 dan simbol synthetic index lain di Deriv didesain berbasis
-random generator. Secara teori, nggak ada pola harga masa lalu yang bisa
-diandalkan buat prediksi harga masa depan di instrumen semacam ini. Model
-ini murni latihan/eksperimen data science, bukan jaminan profit.
-"""
+""" Latih model AI dari ticks_dataset.csv yang dikumpulkan bot. Cara pakai: python train_model.py Butuh minimal beberapa ribu baris data di ticks_dataset.csv biar hasilnya nggak cuma nebak-nebak (noise). Kalau datanya masih dikit, script ini akan kasih peringatan tapi tetap jalan (buat testing pipeline aja, bukan buat dipakai trading beneran). Sekarang latih 2 algoritma sekaligus (Random Forest & Gradient Boosting), bandingin, dan otomatis pilih yang akurasinya lebih baik di data test. PENTING: R_100 dan simbol synthetic index lain di Deriv didesain berbasis random generator. Secara teori, nggak ada pola harga masa lalu yang bisa diandalkan buat prediksi harga masa depan di instrumen semacam ini. Model ini murni latihan/eksperimen data science, bukan jaminan profit. """
 import sys
 import numpy as np
 import pandas as pd
@@ -27,6 +9,7 @@ from sklearn.metrics import accuracy_score, classification_report
 from sklearn.utils.class_weight import compute_sample_weight
 
 from config import TICKS_LOG_PATH, MODEL_PATH, AI_LOOKBACK, PREDICTION_HORIZON_TICKS
+from dataset_logger import ensure_schema
 
 MIN_ROWS_WARNING = 3000
 
@@ -91,6 +74,7 @@ def train_and_evaluate(name, model, X_train, y_train, X_test, y_test, sample_wei
 
 
 def main():
+    ensure_schema()  # migrasi CSV lama kalau perlu, sebelum dibaca
     try:
         df = pd.read_csv(TICKS_LOG_PATH)
     except FileNotFoundError:
