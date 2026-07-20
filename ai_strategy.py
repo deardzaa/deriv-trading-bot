@@ -3,9 +3,9 @@ Strategi berbasis model AI (dilatih oleh train_model.py).
 Dipakai kalau STRATEGY_MODE = "AI" di config.py.
 
 Fitur yang dipakai model: histori perubahan harga (lag), SMA gap, RSI, MACD
-histogram, posisi harga dalam Bollinger Bands, dan lebar Bollinger Bands —
-harus PERSIS sama dengan fitur yang dipakai pas training (train_model.py),
-kalau nggak, prediksi bakal salah karena model bingung urutan/nama fitur.
+histogram, Bollinger Bands, Stochastic Oscillator, Williams %R, Rate of
+Change — fitur yang beneran dipakai ditentuin dari feature_cols yang
+disimpan di model.pkl (jadi otomatis cocok, model lama/baru sama-sama jalan).
 """
 import os
 from collections import deque
@@ -66,6 +66,11 @@ class AiStrategy:
         else:
             row["bb_percent"] = None
             row["bb_width"] = None
+
+        row["stoch_k"] = tech["stoch_k"]
+        row["stoch_d"] = tech["stoch_d"]
+        row["williams_r"] = tech["williams_r"]
+        row["roc"] = tech["roc"]
 
         if any(row.get(c) is None for c in self.feature_cols):
             return None  # ada fitur yang belum bisa dihitung (data belum cukup)
