@@ -15,17 +15,30 @@ DERIV_API_TOKEN = os.getenv("DERIV_API_TOKEN", "")
 APP_ID = os.getenv("DERIV_APP_ID", "1089")  # 1089 = app_id publik default Deriv untuk testing
 
 SYMBOL = "R_100"          # instrumen yang ditrade
-STAKE = 1.0                # USD per trade
+STAKE = 1.0                # USD per trade (base stake, dipakai lagi tiap reset Martingale)
 DURATION = 60               # durasi kontrak (detik)
 DURATION_UNIT = "s"
+
+# Martingale: kalau kalah, stake berikutnya dinaikin biar sekali menang bisa
+# nutup rugi + untung sedikit. RISIKO TINGGI - baca README sebelum diaktifin.
+# Reset ke stake awal kalau MENANG, atau kalau udah kalah MARTINGALE_MAX_STEPS
+# kali berturut-turut (biar nggak bablas).
+ENABLE_MARTINGALE = False
+MARTINGALE_MAX_STEPS = 3
+# Batas keamanan mutlak - stake nggak akan pernah lebih dari STAKE dikali
+# angka ini, apapun yang terjadi (jaga-jaga kalau ada estimasi payout yang
+# meleset atau bug).
+MARTINGALE_MAX_MULTIPLIER = 10
 
 SMA_FAST = 5
 SMA_SLOW = 20
 
-# "SMA" = strategi rule-based bawaan. "AI" = pakai model hasil train_model.py
+# "SMA" = strategi rule-based bawaan (1 indikator). "MULTI" = voting/consensus
+# banyak indikator sekaligus. "AI" = pakai model hasil train_model.py.
 # Jangan set "AI" sebelum ada model.pkl (jalankan train_model.py dulu setelah
 # dataset ticks_dataset.csv cukup banyak, minimal ribuan baris).
 STRATEGY_MODE = "SMA"
+MULTI_MIN_CONSENSUS = 5  # dari 7 indikator, minimal berapa yang harus sepakat
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "model.pkl")
 AI_LOOKBACK = 10       # berapa tick terakhir dipakai sebagai fitur
 AI_MIN_CONFIDENCE = 0.60  # minimal probabilitas biar model mau ambil posisi
