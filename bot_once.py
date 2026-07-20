@@ -1,4 +1,4 @@
- """
+"""
 Versi bot yang jalan SEKALI lalu selesai (bukan streaming terus-terusan).
 Didesain buat dipicu berkala oleh GitHub Actions (cron), bukan proses yang
 tetap hidup di device/server kamu.
@@ -222,20 +222,11 @@ async def single_run():
         print("[FATAL] DERIV_API_TOKEN kosong. Cek GitHub Secrets.")
         sys.exit(1)
 
-    # Ambil URL WebSocket khusus akun DEMO lewat REST + OTP (arsitektur API
-    # terbaru Deriv). Ini sengaja CUMA nyari akun bertipe demo - kalau nggak
-    # ketemu, get_demo_ws_url() raise error dan bot berhenti (fail-open akan
-    # nangkep ini di run_with_retries).
     ws_url, account_id = get_demo_ws_url(DERIV_API_TOKEN, APP_ID)
     print(f"Akun demo ditemukan: {account_id}")
 
     async with websockets.connect(ws_url, open_timeout=15) as ws:
-        # Selesaikan trade BENERAN yang masih 'Open' dulu (biar nggak nyangkut
-        # selamanya), sebelum resolve prediksi shadow dan bikin sinyal baru.
         await resolve_open_trades(ws)
-
-        # Shadow mode: selesaikan prediksi lama dulu (evaluasi jujur pakai
-        # harga yang beneran udah kejadian), sebelum bikin prediksi baru.
         await resolve_shadow_predictions(ws)
 
         prices, times = await fetch_history(ws)
@@ -254,9 +245,6 @@ async def single_run():
 
         print(f"Harga terakhir: {last_price} | Sinyal: {signal or '(tidak ada)'}")
 
-        # Shadow mode: bikin prediksi AI baru buat forward-test, TERLEPAS dari
-        # STRATEGY_MODE yang beneran dipakai buat trading. Ini murni observasi,
-        # nggak mempengaruhi keputusan trading di bawah.
         make_shadow_prediction(prices, times[-1])
 
         if signal and ENABLE_DAILY_LIMITS:
@@ -290,9 +278,6 @@ async def run_with_retries():
 
     print(f"[FAIL-OPEN] Semua percobaan gagal di run ini. Error terakhir: {last_err}")
     print("Bot akan coba lagi di run berikutnya (jadwal berikutnya), bukan berhenti permanen.")
-    # exit 0 (bukan 1) supaya GitHub Actions nggak nge-flag run ini sebagai
-    # failure yang bikin notifikasi spam - ini kegagalan sementara yang wajar
-    # (misal Deriv API lagi maintenance), bukan bug di kode.
 
 
 if __name__ == "__main__":
