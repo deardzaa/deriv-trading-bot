@@ -1,0 +1,25 @@
+name: Backtest ARIMA Strategy
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_samples:
+        description: 'Maksimal berapa kali ARIMA nyoba fit (makin banyak makin lama)'
+        required: false
+        default: '300'
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Backtest strategi ARIMA (model matematis)
+        run: python backtest_arima.py ${{ github.event.inputs.max_samples }}
