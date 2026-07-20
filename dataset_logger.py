@@ -1,13 +1,4 @@
-"""
-Nyimpen setiap tick harga mentah + indikator teknikal ke CSV, buat dataset
-training AI nanti. Ini beda dari trade_logger.py (yang nyimpen hasil trade) —
-file ini nyimpen SEMUA pergerakan harga & indikator, terlepas dari ada trade
-atau enggak, biar dataset-nya lebih kaya buat model belajar pola.
-
-Kolom CSV:
-  timestamp, symbol, price, sma_fast, sma_slow, rsi, macd, macd_signal,
-  bb_upper, bb_mid, bb_lower, stoch_k, stoch_d, williams_r, roc, signal
-"""
+""" Nyimpen setiap tick harga mentah + indikator teknikal ke CSV, buat dataset training AI nanti. Ini beda dari trade_logger.py (yang nyimpen hasil trade) — file ini nyimpen SEMUA pergerakan harga & indikator, terlepas dari ada trade atau enggak, biar dataset-nya lebih kaya buat model belajar pola. Kolom CSV: timestamp, symbol, price, sma_fast, sma_slow, rsi, macd, macd_signal, bb_upper, bb_mid, bb_lower, stoch_k, stoch_d, williams_r, roc, signal """
 import csv
 import os
 from datetime import datetime
@@ -20,10 +11,8 @@ _FIELDNAMES = [
 ]
 
 
-def _migrate_if_needed():
-    """Kalau file udah ada tapi kolomnya beda (skema lama, sebelum indikator
-    baru ditambah), migrasi otomatis: kolom baru diisi kosong buat baris lama,
-    biar data historis nggak hilang dan tetap konsisten."""
+def ensure_schema():
+    """Kalau file udah ada tapi kolomnya beda (skema lama, sebelum indikator baru ditambah), migrasi otomatis: kolom baru diisi kosong buat baris lama, biar data historis nggak hilang dan tetap konsisten. Public function biar bisa dipanggil dari script lain (train_model.py dll), bukan cuma otomatis jalan pas dataset_logger di-import."""
     if not os.path.exists(TICKS_LOG_PATH):
         return
     with open(TICKS_LOG_PATH, "r", newline="") as f:
@@ -47,7 +36,7 @@ def _migrate_if_needed():
     print(f"[dataset_logger] Migrasi selesai, {len(df)} baris dipertahankan.")
 
 
-_migrate_if_needed()
+ensure_schema()
 _header_written = os.path.exists(TICKS_LOG_PATH)
 
 
