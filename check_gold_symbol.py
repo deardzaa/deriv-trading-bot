@@ -56,8 +56,8 @@ async def check():
             found = by_market.get(m, [])
             print(f"\n{m}: {len(found)} simbol tersedia")
             for s in found[:MAX_PER_MARKET]:
-                sym = s.get('symbol') or '?'
-                name = s.get('display_name') or '?'
+                sym = s.get('underlying_symbol') or '?'
+                name = s.get('underlying_symbol_name') or '?'
                 print(f"  {sym:<15} {name}")
 
         # === Cek contracts_for buat tiap kategori (ambil 1-2 simbol representatif) ===
@@ -74,7 +74,7 @@ async def check():
 
             # Cek 2 simbol representatif per market biar nggak cuma 1 sample
             for s in found[:2]:
-                symbol = s.get("symbol")
+                symbol = s.get("underlying_symbol")
                 if not symbol:
                     print(f"\n({m}): entri ini nggak punya field 'symbol' yang valid, skip. Raw: {s}")
                     continue
