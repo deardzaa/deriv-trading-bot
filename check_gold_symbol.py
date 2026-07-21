@@ -49,6 +49,16 @@ async def check():
         if not gold_matches:
             print("Nggak ketemu simbol gold apapun di active_symbols.")
             print("Kemungkinan: nggak tersedia di landing company akun kamu, atau nama simbol beda.")
+            markets = sorted(set(s.get("market", "?") for s in symbols))
+            print(f"\nTotal simbol yang TERSEDIA buat akun ini: {len(symbols)}")
+            print(f"Kategori market yang tersedia: {markets}")
+            sample_by_market = {}
+            for s in symbols:
+                m = s.get("market", "?")
+                sample_by_market.setdefault(m, []).append(s.get("symbol"))
+            print("\nContoh simbol per kategori (max 5 tiap kategori):")
+            for m, syms in sample_by_market.items():
+                print(f"  {m}: {syms[:5]}")
         else:
             for s in gold_matches:
                 print(f"  symbol={s.get('symbol')} | display_name={s.get('display_name')} | "
@@ -67,7 +77,7 @@ async def check():
         print("\n" + "=" * 60)
         print(f"CEK contracts_for symbol={found_symbol}")
         print("=" * 60)
-        await ws.send(json.dumps({"contracts_for": found_symbol, "currency": "USD"}))
+        await ws.send(json.dumps({"contracts_for": found_symbol}))
         resp2 = json.loads(await ws.recv())
 
         if "error" in resp2:
