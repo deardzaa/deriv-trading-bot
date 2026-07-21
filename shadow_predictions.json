@@ -9143,7 +9143,19 @@
       "resolved": false,
       "actual_price": null,
       "correct": null
+    },
+    {
+      "id": 763,
+      "made_at": 1784650242,
+      "made_at_readable": "2026-07-21 16:10:42",
+      "entry_price": 541.66,
+      "predicted_direction": "DOWN",
+      "confidence": 0.6071,
+      "target_epoch": 1784650302,
+      "resolved": false,
+      "actual_price": null,
+      "correct": null
     }
   ],
-  "next_id": 763
+  "next_id": 764
 }
