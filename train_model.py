@@ -1,4 +1,4 @@
-""" Latih model AI dari ticks_dataset.csv yang dikumpulkan bot. Cara pakai: python train_model.py Butuh minimal beberapa ribu baris data di ticks_dataset.csv biar hasilnya nggak cuma nebak-nebak (noise). Kalau datanya masih dikit, script ini akan kasih peringatan tapi tetap jalan (buat testing pipeline aja, bukan buat dipakai trading beneran). Sekarang latih 2 algoritma sekaligus (Random Forest & Gradient Boosting), bandingin, dan otomatis pilih yang akurasinya lebih baik di data test. PENTING: R_100 dan simbol synthetic index lain di Deriv didesain berbasis random generator. Secara teori, nggak ada pola harga masa lalu yang bisa diandalkan buat prediksi harga masa depan di instrumen semacam ini. Model ini murni latihan/eksperimen data science, bukan jaminan profit. """
+""" Latih model AI dari ticks_dataset.csv yang dikumpulkan bot. Cara pakai: python train_model.py Butuh minimal beberapa ribu baris data di ticks_dataset.csv biar hasilnya nggak cuma nebak-nebak (noise). Kalau datanya masih dikit, script ini akan kasih peringatan tapi tetap jalan (buat testing pipeline aja, bukan buat dipakai trading beneran). Sekarang latih 3 algoritma sekaligus (Random Forest, Gradient Boosting, LightGBM), bandingin, dan otomatis pilih yang akurasinya lebih baik di data test. PENTING: R_100 dan simbol synthetic index lain di Deriv didesain berbasis random generator. Secara teori, nggak ada pola harga masa lalu yang bisa diandalkan buat prediksi harga masa depan di instrumen semacam ini. Model ini murni latihan/eksperimen data science, bukan jaminan profit. """
 import sys
 import numpy as np
 import pandas as pd
@@ -7,6 +7,7 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.utils.class_weight import compute_sample_weight
+import lightgbm as lgb
 
 from config import TICKS_LOG_PATH, MODEL_PATH, AI_LOOKBACK, PREDICTION_HORIZON_TICKS
 from dataset_logger import ensure_schema
@@ -124,12 +125,23 @@ def main():
     gb, gb_acc = train_and_evaluate("Gradient Boosting", gb, X_train, y_train, X_test, y_test,
                                      sample_weight=gb_weights)
 
-    if gb_acc > rf_acc:
-        model, model_name = gb, "Gradient Boosting"
-    else:
-        model, model_name = rf, "Random Forest"
-    print(f"\n>>> Model terpilih: {model_name} (akurasi {max(rf_acc, gb_acc):.3f} "
-          f"vs {min(rf_acc, gb_acc):.3f})")
+    # LightGBM - biasanya lebih baik dari Gradient Boosting sklearn karena
+    # regularisasi lebih canggih & lebih pas buat data nonlinear kayak ini.
+    lgbm = lgb.LGBMClassifier(
+        n_estimators=200, max_depth=4, learning_rate=0.05, random_state=42,
+        verbose=-1, class_weight="balanced"
+    )
+    lgbm, lgbm_acc = train_and_evaluate("LightGBM", lgbm, X_train, y_train, X_test, y_test)
+
+    candidates = [
+        ("Random Forest", rf, rf_acc),
+        ("Gradient Boosting", gb, gb_acc),
+        ("LightGBM", lgbm, lgbm_acc),
+    ]
+    model_name, model, best_acc = max(candidates, key=lambda c: c[2])
+    other_accs = sorted([c[2] for c in candidates if c[0] != model_name], reverse=True)
+    print(f"\n>>> Model terpilih: {model_name} (akurasi {best_acc:.3f} "
+          f"vs {other_accs[0]:.3f} vs {other_accs[1]:.3f})")
     print("(Sekadar konteks: 0.50 = sama aja kayak nebak koin. Kalau cuma sedikit di atas "
           "0.50, itu nggak signifikan buat dipakai trading beneran.)")
 
