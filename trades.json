@@ -8,9 +8,9 @@
       "type": "PUT",
       "stake": 1.0,
       "entry": 519.92,
-      "exit": null,
-      "pl": null,
-      "status": "Open"
+      "exit": 0.0,
+      "pl": -1.0,
+      "status": "Settled"
     },
     {
       "contract_id": 6322971379,
@@ -854,9 +854,9 @@
     }
   ],
   "summary": {
-    "net_pl": -8.56,
+    "net_pl": -9.56,
     "wins": 32,
-    "losses": 38,
-    "open": 1
+    "losses": 39,
+    "open": 0
   }
 }
