@@ -46,5 +46,16 @@ jobs:
           git config user.name "deriv-bot"
           git config user.email "bot@users.noreply.github.com"
           git add model.pkl ticks_dataset.csv 2>/dev/null || true
-          git diff --cached --quiet || git commit -m "Update AI model [skip ci]"
-          git push
+          git diff --cached --quiet && echo "Tidak ada perubahan." && exit 0
+          git commit -m "Update AI model [skip ci]"
+          for i in 1 2 3 4 5; do
+            if git push; then
+              echo "Push berhasil di percobaan ke-$i."
+              exit 0
+            fi
+            echo "Push gagal (percobaan $i/5), pull rebase lalu coba lagi..."
+            git pull --rebase origin main
+            sleep 3
+          done
+          echo "Push tetap gagal setelah 5x percobaan."
+          exit 1
