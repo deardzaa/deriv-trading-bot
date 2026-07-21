@@ -33,7 +33,7 @@ async def check():
         print("=" * 60)
         print("CEK active_symbols (cari yang berhubungan sama gold)")
         print("=" * 60)
-        await ws.send(json.dumps({"active_symbols": "brief", "product_type": "basic"}))
+        await ws.send(json.dumps({"active_symbols": "brief"}))
         resp = json.loads(await ws.recv())
 
         if "error" in resp:
