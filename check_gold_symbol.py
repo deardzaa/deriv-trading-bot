@@ -51,7 +51,9 @@ async def check():
             found = by_market.get(m, [])
             print(f"\n{m}: {len(found)} simbol tersedia")
             for s in found[:MAX_PER_MARKET]:
-                print(f"  {s.get('symbol'):<15} {s.get('display_name')}")
+                sym = s.get('symbol') or '?'
+                name = s.get('display_name') or '?'
+                print(f"  {sym:<15} {name}")
 
         # === Cek contracts_for buat tiap kategori (ambil 1-2 simbol representatif) ===
         print("\n" + "=" * 60)
@@ -82,8 +84,8 @@ async def check():
                     print(f"\n{symbol} ({m}): nggak ada kontrak Rise/Fall (CALL/PUT) tersedia.")
                     continue
 
-                min_dur = riseFall[0].get("min_contract_duration")
-                max_dur = riseFall[0].get("max_contract_duration")
+                min_dur = riseFall[0].get("min_contract_duration") or "?"
+                max_dur = riseFall[0].get("max_contract_duration") or "?"
                 print(f"\n{symbol} ({m}):")
                 print(f"  Rise/Fall min_duration={min_dur}  max_duration={max_dur}")
                 summary.append((symbol, m, min_dur))
