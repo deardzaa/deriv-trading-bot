@@ -41,6 +41,11 @@ async def check():
             sys.exit(1)
 
         symbols = resp.get("active_symbols", [])
+        print(f"\nTotal simbol diterima dari API: {len(symbols)}")
+        print("\n--- DEBUG: contoh 2 entri mentah dari API (biar ketauan nama field asli) ---")
+        print(json.dumps(symbols[:2], indent=2))
+        print("--- END DEBUG ---\n")
+
         by_market = {}
         for s in symbols:
             m = s.get("market")
@@ -70,6 +75,9 @@ async def check():
             # Cek 2 simbol representatif per market biar nggak cuma 1 sample
             for s in found[:2]:
                 symbol = s.get("symbol")
+                if not symbol:
+                    print(f"\n({m}): entri ini nggak punya field 'symbol' yang valid, skip. Raw: {s}")
+                    continue
                 await ws.send(json.dumps({"contracts_for": symbol}))
                 resp2 = json.loads(await ws.recv())
 
