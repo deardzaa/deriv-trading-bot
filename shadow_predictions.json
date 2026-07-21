@@ -8183,7 +8183,19 @@
       "resolved": false,
       "actual_price": null,
       "correct": null
+    },
+    {
+      "id": 683,
+      "made_at": 1784645198,
+      "made_at_readable": "2026-07-21 14:46:38",
+      "entry_price": 548.3,
+      "predicted_direction": "DOWN",
+      "confidence": 0.5393,
+      "target_epoch": 1784645258,
+      "resolved": false,
+      "actual_price": null,
+      "correct": null
     }
   ],
-  "next_id": 683
+  "next_id": 684
 }
