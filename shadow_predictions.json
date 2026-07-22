@@ -20591,7 +20591,19 @@
       "resolved": false,
       "actual_price": null,
       "correct": null
+    },
+    {
+      "id": 1717,
+      "made_at": 1784708494,
+      "made_at_readable": "2026-07-22 08:21:34",
+      "entry_price": 516.82,
+      "predicted_direction": "UP",
+      "confidence": 0.5142,
+      "target_epoch": 1784708554,
+      "resolved": false,
+      "actual_price": null,
+      "correct": null
     }
   ],
-  "next_id": 1717
+  "next_id": 1718
 }
