@@ -8,9 +8,9 @@
       "type": "CALL",
       "stake": 1.0,
       "entry": 522.01,
-      "exit": null,
-      "pl": null,
-      "status": "Open"
+      "exit": 0.0,
+      "pl": -1.0,
+      "status": "Settled"
     },
     {
       "contract_id": 6343147859,
@@ -1130,9 +1130,9 @@
     }
   ],
   "summary": {
-    "net_pl": -18.12,
+    "net_pl": -19.12,
     "wins": 39,
-    "losses": 54,
-    "open": 1
+    "losses": 55,
+    "open": 0
   }
 }
