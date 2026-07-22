@@ -20888,9 +20888,9 @@
       "predicted_direction": "UP",
       "confidence": 0.5093,
       "target_epoch": 1784709996,
-      "resolved": false,
-      "actual_price": null,
-      "correct": null
+      "resolved": true,
+      "actual_price": 519.68,
+      "correct": false
     },
     {
       "id": 1742,
@@ -20903,7 +20903,19 @@
       "resolved": false,
       "actual_price": null,
       "correct": null
+    },
+    {
+      "id": 1743,
+      "made_at": 1784710052,
+      "made_at_readable": "2026-07-22 08:47:32",
+      "entry_price": 518.8,
+      "predicted_direction": "DOWN",
+      "confidence": 0.534,
+      "target_epoch": 1784710112,
+      "resolved": false,
+      "actual_price": null,
+      "correct": null
     }
   ],
-  "next_id": 1743
+  "next_id": 1744
 }
