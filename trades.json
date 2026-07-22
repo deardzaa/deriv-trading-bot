@@ -1,6 +1,18 @@
 {
   "trades": [
     {
+      "contract_id": 6329770219,
+      "date": "2026-07-22",
+      "time": "00:22:36",
+      "symbol": "R_100",
+      "type": "CALL",
+      "stake": 1.0,
+      "entry": 526.69,
+      "exit": null,
+      "pl": null,
+      "status": "Open"
+    },
+    {
       "contract_id": 6329710599,
       "date": "2026-07-22",
       "time": "00:21:35",
@@ -893,6 +905,6 @@
     "net_pl": -9.64,
     "wins": 33,
     "losses": 40,
-    "open": 1
+    "open": 2
   }
 }
