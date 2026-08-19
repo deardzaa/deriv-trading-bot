@@ -1,6 +1,18 @@
 {
   "trades": [
     {
+      "contract_id": 9796494999,
+      "date": "2026-08-19",
+      "time": "11:05:56",
+      "symbol": "R_100",
+      "type": "CALL",
+      "stake": 1.0,
+      "entry": 575.32,
+      "exit": null,
+      "pl": null,
+      "status": "Open"
+    },
+    {
       "contract_id": 9760269039,
       "date": "2026-08-19",
       "time": "03:29:08",
@@ -1685,6 +1697,6 @@
     "net_pl": -22.88,
     "wins": 61,
     "losses": 79,
-    "open": 0
+    "open": 1
   }
 }
