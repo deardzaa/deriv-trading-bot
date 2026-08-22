@@ -31304,10 +31304,22 @@
       "predicted_direction": "UP",
       "confidence": 0.5238,
       "target_epoch": 1787396414,
+      "resolved": true,
+      "actual_price": 603.09,
+      "correct": true
+    },
+    {
+      "id": 2610,
+      "made_at": 1787398000,
+      "made_at_readable": "2026-08-22 11:26:40",
+      "entry_price": 607.06,
+      "predicted_direction": "DOWN",
+      "confidence": 0.5343,
+      "target_epoch": 1787398060,
       "resolved": false,
       "actual_price": null,
       "correct": null
     }
   ],
-  "next_id": 2610
+  "next_id": 2611
 }
