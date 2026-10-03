@@ -35960,10 +35960,22 @@
       "predicted_direction": "DOWN",
       "confidence": 0.5022,
       "target_epoch": 1791058192,
+      "resolved": true,
+      "actual_price": 670.7,
+      "correct": false
+    },
+    {
+      "id": 2998,
+      "made_at": 1791068586,
+      "made_at_readable": "2026-10-03 23:03:06",
+      "entry_price": 669.02,
+      "predicted_direction": "DOWN",
+      "confidence": 0.5036,
+      "target_epoch": 1791068646,
       "resolved": false,
       "actual_price": null,
       "correct": null
     }
   ],
-  "next_id": 2998
+  "next_id": 2999
 }
